@@ -4,8 +4,9 @@ import org.junit.jupiter.api.Test
 private fun getJob(): Job {
     return Job(
         run = getRunCondition(),
-        succeed = getSucceedCondition(),
         pause = getPauseCondition(),
+        succeed = getSucceedCondition(),
+        fail = getFailCondition(),
         reset = getResetCondition()
     )
 }
@@ -72,7 +73,7 @@ private fun getSucceedCondition(): Condition {
             contextKey = "$.human",
             operator = "merge",
             operands = listOf(
-                Operand(source = "event", type = "string", value = "$.value", contextKeyPostfix = "$.type")
+                Operand(source = "event", type = "string", value = "$.value", options = mapOf("contextKeyPostfix" to "$.type"))
             )
         ),
         Operation(
@@ -89,6 +90,20 @@ private fun getSucceedCondition(): Condition {
             operands = listOf(
                 Operand(source = "context", type = "string", value = "$.human.head"),
                 Operand(source = "context", type = "string", value = "$.human.foot")
+            )
+        )
+    )
+    return Condition(operations)
+}
+
+
+fun getFailCondition(): Condition {
+    val operations = listOf(
+        Operation(
+            contextKey = "$.date",
+            operator = "substring",
+            operands = listOf(
+                Operand(source = "event", type = "string", value = "$.datetime", options = mapOf("start" to "0", "end" to "10")),
             )
         )
     )
@@ -142,7 +157,8 @@ class EventProcessUsecaseTest {
                 ),
                 "quantity" to 2,
                 "type" to "head",
-                "value" to "head"
+                "value" to "head",
+                "datetime" to "2021-01-01T01:02:03"
             )
         )
         val event2 = Event(
@@ -153,7 +169,8 @@ class EventProcessUsecaseTest {
                 ),
                 "quantity" to 3,
                 "type" to "foot",
-                "value" to "foot"
+                "value" to "foot",
+                "datetime" to "2021-01-02T02:03:04"
             )
         )
         eventProcessUsecase.process(event1)
