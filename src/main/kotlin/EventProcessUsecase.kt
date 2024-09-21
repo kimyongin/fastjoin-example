@@ -1,23 +1,70 @@
-import com.jayway.jsonpath.JsonPath
-import com.jayway.jsonpath.DocumentContext
-import com.jayway.jsonpath.Configuration
-import com.jayway.jsonpath.Option
 
 data class Event(val data: Map<String, Any>) {
-    private val jsonConfig: Configuration = Configuration.builder().options(Option.DEFAULT_PATH_LEAF_TO_NULL).build()
-    private var document: DocumentContext = JsonPath.using(jsonConfig).parse(data)
+    fun get(jsonPath: String): Any? {
+        return JsonHelper.get(data, jsonPath)
+    }
+}
+
+class Context(val data: MutableMap<String, Any?> = mutableMapOf()) {
+    private var updated: Boolean = false
 
     fun get(jsonPath: String): Any? {
-        val path = JsonPath.compile(jsonPath)
-        return document.read(path)
+        return JsonHelper.get(data, jsonPath)
+    }
+
+    fun set(jsonPath: String, value: Any?) {
+        val isUpdated = JsonHelper.set(data, jsonPath, value)
+        if (!updated && isUpdated) {
+            updated = true
+        }
+    }
+
+    fun toJsonString(isPretty: Boolean = false): String {
+        return JsonHelper.toJsonString(data, isPretty)
+    }
+
+    fun isUpdated(): Boolean {
+        return updated
+    }
+}
+
+data class Operand(val source: String, val type: String, val value: String, val contextKeyPostfix: String? = null)
+
+class Condition(val operations: List<Operation>)
+
+data class Job(
+    val run: Condition? = null,
+    val pause: Condition? = null,
+    val succeed: Condition? = null,
+    val fail: Condition? = null,
+    val reset: Condition? = null
+)
+
+class EventProcessUsecase(val job: Job, val context: Context) {
+    fun process(event: Event) {
+        job.run?.operations?.forEach { condition ->
+            condition.run("run", context, event)
+        }
+        job.pause?.operations?.forEach { condition ->
+            condition.run("pause", context, event)
+        }
+        job.succeed?.operations?.forEach { condition ->
+            condition.run("succeed", context, event)
+        }
+        job.fail?.operations?.forEach { condition ->
+            condition.run("fail", context, event)
+        }
+        job.reset?.operations?.forEach { condition ->
+            condition.run("reset", context, event)
+        }
     }
 }
 
 class Operation(val contextKey: String, val operator: String, val operands: List<Operand>) {
 
-    private fun getContextKey(condition: String, operand: Operand, event: Event): String {
+    private fun getContextKey(condition: String, operand: Operand?, event: Event): String {
         val baseKey = contextKey.replace("$.", "$.$condition.")
-        return operand.contextKeyPostfix?.let {
+        return operand?.contextKeyPostfix?.let {
             val postfixValue = event.get(it) ?: ""
             "$baseKey.$postfixValue"
         } ?: baseKey
@@ -28,16 +75,12 @@ class Operation(val contextKey: String, val operator: String, val operands: List
             "event" -> event.get(operand.value)
             "constant" -> operand.value
             "context" -> context.get(operand.value.replace("$.", "$.$condition."))
+            "context::run" -> context.get(operand.value.replace("$.", "$.run."))
+            "context::succeed" -> context.get(operand.value.replace("$.", "$.succeed."))
+            "context::fail" -> context.get(operand.value.replace("$.", "$.fail."))
+            "context::pause" -> context.get(operand.value.replace("$.", "$.pause."))
+            "context::reset" -> context.get(operand.value.replace("$.", "$.reset."))
             else -> throw UnsupportedOperationException("'${operand.source}' is not supported")
-        }
-    }
-
-    fun getClassFromType(type: String): Class<*> {
-        return when (type) {
-            "Int" -> Int::class.java
-            "Long" -> Long::class.java
-            "String" -> String::class.java
-            else -> throw UnsupportedOperationException("'${type}' is not supported")
         }
     }
 
@@ -50,58 +93,43 @@ class Operation(val contextKey: String, val operator: String, val operands: List
                     context.set(contextKey, value)
                 }
             }
-
             "sum" -> {
                 operands[0].let { operand ->
-                    val value = getValue(condition, operand, event, context) as? Int ?: 0
+                    val value = getValue(condition, operand, event, context)
                     val contextKey = getContextKey(condition, operand, event)
-                    val currentValue = context.get<Int>(contextKey) ?: 0
-                    val newValue = currentValue + value
+                    val currentValue = context.get(contextKey)
+                    val newValue = Operator.sum(operand.type, value, currentValue)
                     context.set(contextKey, newValue)
                 }
             }
-
             "equal" -> {
                 val left = getValue(condition, operands[0], event, context)
                 val right = getValue(condition, operands[1], event, context)
-                val leftValue = (left as? String)?.toIntOrNull() ?: left
-                val rightValue = (right as? String)?.toIntOrNull() ?: right
-                val result = leftValue == rightValue
+                val result = Operator.equal(left, right)
                 val contextKey = getContextKey(condition, operands[0], event)
                 context.set(contextKey, result)
             }
-        }
-    }
-}
-
-data class Operand(val source: String, val type: String, val value: String, val contextKeyPostfix: String? = null)
-
-class Condition(val operations: List<Operation>)
-
-data class Job(
-    val run: Condition? = null,
-    val paused: Condition? = null,
-    val succeed: Condition? = null,
-    val fail: Condition? = null,
-    val reset: Condition? = null
-)
-
-class EventProcessUsecase(val job: Job, val context: Context) {
-    fun process(event: Event) {
-        job.run?.operations?.forEach { condition ->
-            condition.run("run", context, event)
-        }
-        job.paused?.operations?.forEach { condition ->
-            condition.run("paused", context, event)
-        }
-        job.succeed?.operations?.forEach { condition ->
-            condition.run("succeed", context, event)
-        }
-        job.fail?.operations?.forEach { condition ->
-            condition.run("fail", context, event)
-        }
-        job.reset?.operations?.forEach { condition ->
-            condition.run("reset", context, event)
+            "greater_than_equal" -> {
+                val left = getValue(condition, operands[0], event, context)
+                val right = getValue(condition, operands[1], event, context)
+                val result = Operator.greaterThanEqual(operands[0].type, left, operands[1].type, right)
+                val contextKey = getContextKey(condition, operands[0], event)
+                context.set(contextKey, result)
+            }
+            "has_all_key" -> {
+                val result = operands.all { operand ->
+                    getValue(condition, operand, event, context) != null
+                }
+                val contextKey = getContextKey(condition, null, event)
+                context.set(contextKey, result)
+            }
+            "has_any_key" -> {
+                val result = operands.any { operand ->
+                    getValue(condition, operand, event, context) != null
+                }
+                val contextKey = getContextKey(condition, null, event)
+                context.set(contextKey, result)
+            }
         }
     }
 }

@@ -1,4 +1,3 @@
-import com.fasterxml.jackson.databind.introspect.TypeResolutionContext.Empty
 import org.junit.jupiter.api.Test
 
 
@@ -6,9 +5,8 @@ private fun getJob(): Job {
     return Job(
         run = getRunCondition(),
         succeed = getSucceedCondition(),
-        paused = getPausedCondition(),
-        fail = Condition(emptyList()),
-        reset = Condition(emptyList())
+        pause = getPauseCondition(),
+        reset = getResetCondition()
     )
 }
 
@@ -40,7 +38,7 @@ private fun getRunCondition(): Condition {
     return Condition(operations)
 }
 
-private fun getPausedCondition(): Condition {
+private fun getPauseCondition(): Condition {
     val operations = listOf(
         Operation(
             contextKey = "$.inner.projection",
@@ -58,7 +56,7 @@ private fun getPausedCondition(): Condition {
         ),
         Operation(
             contextKey = "$.inner.quantity_sum_equal",
-            operator = "equal",
+            operator = "greater_than_equal",
             operands = listOf(
                 Operand(source = "context", type = "number", value = "$.inner.quantity_sum"),
                 Operand(source = "constant", type = "number", value = "5")
@@ -76,10 +74,47 @@ private fun getSucceedCondition(): Condition {
             operands = listOf(
                 Operand(source = "event", type = "string", value = "$.value", contextKeyPostfix = "$.type")
             )
+        ),
+        Operation(
+            contextKey = "$.has_all",
+            operator = "has_all_key",
+            operands = listOf(
+                Operand(source = "context", type = "string", value = "$.human.head"),
+                Operand(source = "context", type = "string", value = "$.human.foot")
+            )
+        ),
+        Operation(
+            contextKey = "$.has_any",
+            operator = "has_any_key",
+            operands = listOf(
+                Operand(source = "context", type = "string", value = "$.human.head"),
+                Operand(source = "context", type = "string", value = "$.human.foot")
+            )
         )
     )
     return Condition(operations)
 }
+
+private fun getResetCondition(): Condition {
+    val operations = listOf(
+        Operation(
+            contextKey = "$.copy_from_succeed.has_all",
+            operator = "projection",
+            operands = listOf(
+                Operand(source = "context::succeed", type = "string", value = "$.has_all"),
+            )
+        ),
+        Operation(
+            contextKey = "$.copy_from_succeed.has_any",
+            operator = "projection",
+            operands = listOf(
+                Operand(source = "context::succeed", type = "string", value = "$.has_any") // reset 에서 succeed 컨텍스트에 접근
+            )
+        )
+    )
+    return Condition(operations)
+}
+
 
 class EventProcessUsecaseTest {
     @Test
@@ -125,5 +160,9 @@ class EventProcessUsecaseTest {
         println(context.toJsonString(true))
         eventProcessUsecase.process(event2)
         println(context.toJsonString(true))
+        if (context.isUpdated()) {
+            println("updated")
+            // jobSession 업데이트
+        }
     }
 }
