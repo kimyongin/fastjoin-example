@@ -61,5 +61,8 @@ class EventProcessServiceTest {
             println("updated")
             // jobSession 업데이트
         }
+
+        val clone = context.clone()
+        println(clone.toJsonString(true))
     }
 }

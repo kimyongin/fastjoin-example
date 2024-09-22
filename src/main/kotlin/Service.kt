@@ -1,4 +1,5 @@
 import ConditionType.*
+import OperandOption.*
 import OperatorType.*
 
 class EventProcessService(private val job: Job, private val context: Context) {
@@ -46,7 +47,7 @@ class OperationService {
             PROJECTION, MERGE -> {
                 for (operand in operation.operands) {
                     val value = getValue(conditionType, operand, event, context)
-                    val contextKey = operand.options?.get("contextKeyPostfix")?.let {
+                    val contextKey = operand.options?.get(CONTEXT_KEY_POSTFIX)?.let {
                         val postfixValue = event.get(it) ?: ""
                         "${getContextKey(operation.contextKey, conditionType)}.$postfixValue"
                     } ?: getContextKey(operation.contextKey, conditionType)
@@ -114,8 +115,8 @@ class OperationService {
 
             SUBSTRING -> {
                 val value = getValue(conditionType, operation.operands[0], event, context)
-                val start = operation.operands[0].options?.get("start")?.toInt() ?: 0
-                val end = operation.operands[0].options?.get("end")?.toInt() ?: value.toString().length
+                val start = operation.operands[0].options?.get(START)?.toInt() ?: 0
+                val end = operation.operands[0].options?.get(END)?.toInt() ?: value.toString().length
                 val result = value.toString().substring(start, end)
                 val contextKey = getContextKey(operation.contextKey, conditionType)
                 context.set(contextKey, result)

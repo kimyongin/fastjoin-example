@@ -30,6 +30,11 @@ data class Context(val data: MutableMap<String, Any?> = mutableMapOf()) {
     fun isUpdated(): Boolean {
         return updated
     }
+
+    fun clone(): Context {
+        val clone = JsonHelper.clone(data)
+        return Context(clone)
+    }
 }
 
 enum class OperandSource(@JsonValue val value: String) {
@@ -63,11 +68,24 @@ enum class OperandType(@JsonValue val value: String) {
     }
 }
 
+enum class OperandOption(@JsonValue val value: String) {
+    START("start"),
+    END("end"),
+    CONTEXT_KEY_POSTFIX("context_key_postfix");
+
+    companion object {
+        @JsonCreator
+        fun fromValue(value: String): OperandOption {
+            return entries.find { it.value == value } ?: throw IllegalArgumentException("Invalid OperandOption: $value")
+        }
+    }
+}
+
 data class Operand @JsonCreator constructor(
     @JsonProperty("source") val source: OperandSource,
     @JsonProperty("type") val type: OperandType,
     @JsonProperty("value") val value: String,
-    @JsonProperty("options") val options: Map<String, String>? = null
+    @JsonProperty("options") val options: Map<OperandOption, String>? = null
 ) {
     fun getConstantValue(): Any? {
         return when (type) {

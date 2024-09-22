@@ -95,7 +95,7 @@
               "type": "string",
               "value": "$.value",
               "options": {
-                "context_keyPostfix": "$.type"
+                "context_key_postfix": "$.type"
               }
             }
           ]

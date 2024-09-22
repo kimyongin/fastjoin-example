@@ -54,6 +54,16 @@ object JsonHelper {
         }
     }
 
+    fun clone(data: Map<String, Any?>): MutableMap<String, Any?> {
+        return data.mapValues { entry ->
+            when (val value = entry.value) {
+                is Map<*, *> -> (value as Map<String, Any?>).toMutableMap()
+                is List<*> -> value.toMutableList()
+                else -> value
+            }
+        }.toMutableMap()
+    }
+
     fun toJsonString(data: Map<String, Any?>, isPretty: Boolean = false): String {
         return if (isPretty) {
             objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(data)
