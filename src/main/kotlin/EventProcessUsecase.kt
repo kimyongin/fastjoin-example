@@ -5,7 +5,7 @@ data class Event(val data: Map<String, Any>) {
     }
 }
 
-class Context(val data: MutableMap<String, Any?> = mutableMapOf()) {
+data class Context(val data: MutableMap<String, Any?> = mutableMapOf()) {
     private var updated: Boolean = false
 
     fun get(jsonPath: String): Any? {
@@ -28,9 +28,20 @@ class Context(val data: MutableMap<String, Any?> = mutableMapOf()) {
     }
 }
 
-data class Operand(val source: String, val type: String, val value: String, val options: Map<String, String>? = null)
+sealed class OperandType {
+    object Number : OperandType()
+    object String : OperandType()
+    object Boolean : OperandType()
+}
 
-class Condition(val operations: List<Operation>)
+data class Operand(
+    val source: String,
+    val type: OperandType,
+    val value: String,
+    val options: Map<String, String>? = null
+)
+
+data class Condition(val operations: List<Operation>)
 
 data class Job(
     val run: Condition? = null,
@@ -42,20 +53,17 @@ data class Job(
 
 class EventProcessUsecase(val job: Job, val context: Context) {
     fun process(event: Event) {
-        job.run?.operations?.forEach { condition ->
-            condition.run("run", context, event)
-        }
-        job.pause?.operations?.forEach { condition ->
-            condition.run("pause", context, event)
-        }
-        job.succeed?.operations?.forEach { condition ->
-            condition.run("succeed", context, event)
-        }
-        job.fail?.operations?.forEach { condition ->
-            condition.run("fail", context, event)
-        }
-        job.reset?.operations?.forEach { condition ->
-            condition.run("reset", context, event)
+        val conditions = listOf(
+            "run" to job.run,
+            "pause" to job.pause,
+            "succeed" to job.succeed,
+            "fail" to job.fail,
+            "reset" to job.reset
+        )
+        conditions.forEach { (conditionName, condition) ->
+            condition?.operations?.forEach { operation ->
+                operation.run(conditionName, context, event)
+            }
         }
     }
 }
@@ -92,6 +100,7 @@ class Operation(val contextKey: String, val operator: String, val operands: List
                     context.set(contextKey, value)
                 }
             }
+            "count" -> {/* not implemented */}
             "sum" -> {
                 operands[0].let { operand ->
                     val value = getValue(condition, operand, event, context)
@@ -101,13 +110,15 @@ class Operation(val contextKey: String, val operator: String, val operands: List
                     context.set(contextKey, newValue)
                 }
             }
+            "not_equal" -> {/* not implemented */}
             "equal" -> {
                 val left = getValue(condition, operands[0], event, context)
                 val right = getValue(condition, operands[1], event, context)
-                val result = Operator.equal(left, right)
+                val result = Operator.equal(operands[0].type, left, operands[1].type, right)
                 val contextKey = getContextKey(condition)
                 context.set(contextKey, result)
             }
+            "greater_than" -> {/* not implemented */}
             "greater_than_equal" -> {
                 val left = getValue(condition, operands[0], event, context)
                 val right = getValue(condition, operands[1], event, context)
@@ -115,6 +126,8 @@ class Operation(val contextKey: String, val operator: String, val operands: List
                 val contextKey = getContextKey(condition)
                 context.set(contextKey, result)
             }
+            "less_than" -> {/* not implemented */}
+            "less_than_equal" -> {/* not implemented */}
             "has_all_key" -> {
                 val result = operands.all { operand ->
                     getValue(condition, operand, event, context) != null

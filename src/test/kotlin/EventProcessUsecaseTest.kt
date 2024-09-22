@@ -17,22 +17,22 @@ private fun getRunCondition(): Condition {
             contextKey = "$.projection",
             operator = "projection",
             operands = listOf(
-                Operand(source = "event", type = "string", value = "$.info.name")
+                Operand(source = "event", type = OperandType.String, value = "$.info.name")
             )
         ),
         Operation(
             contextKey = "$.quantity_sum",
             operator = "sum",
             operands = listOf(
-                Operand(source = "event", type = "number", value = "$.quantity")
+                Operand(source = "event", type = OperandType.Number, value = "$.quantity")
             )
         ),
         Operation(
             contextKey = "$.quantity_sum_equal",
             operator = "equal",
             operands = listOf(
-                Operand(source = "context", type = "number", value = "$.quantity_sum"),
-                Operand(source = "constant", type = "number", value = "5")
+                Operand(source = "context", type = OperandType.Number, value = "$.quantity_sum"),
+                Operand(source = "constant", type = OperandType.Number, value = "5")
             )
         )
     )
@@ -45,22 +45,22 @@ private fun getPauseCondition(): Condition {
             contextKey = "$.inner.projection",
             operator = "projection",
             operands = listOf(
-                Operand(source = "event", type = "string", value = "$.info.name"),
+                Operand(source = "event", type = OperandType.String, value = "$.info.name"),
             )
         ),
         Operation(
             contextKey = "$.inner.quantity_sum",
             operator = "sum",
             operands = listOf(
-                Operand(source = "event", type = "number", value = "$.quantity")
+                Operand(source = "event", type = OperandType.Number, value = "$.quantity")
             )
         ),
         Operation(
             contextKey = "$.inner.quantity_sum_equal",
             operator = "greater_than_equal",
             operands = listOf(
-                Operand(source = "context", type = "number", value = "$.inner.quantity_sum"),
-                Operand(source = "constant", type = "number", value = "5")
+                Operand(source = "context", type = OperandType.Number, value = "$.inner.quantity_sum"),
+                Operand(source = "constant", type = OperandType.Number, value = "5")
             )
         )
     )
@@ -73,23 +73,23 @@ private fun getSucceedCondition(): Condition {
             contextKey = "$.human",
             operator = "merge",
             operands = listOf(
-                Operand(source = "event", type = "string", value = "$.value", options = mapOf("contextKeyPostfix" to "$.type"))
+                Operand(source = "event", type = OperandType.String, value = "$.value", options = mapOf("contextKeyPostfix" to "$.type"))
             )
         ),
         Operation(
             contextKey = "$.has_all",
             operator = "has_all_key",
             operands = listOf(
-                Operand(source = "context", type = "string", value = "$.human.head"),
-                Operand(source = "context", type = "string", value = "$.human.foot")
+                Operand(source = "context", type = OperandType.String, value = "$.human.head"),
+                Operand(source = "context", type = OperandType.String, value = "$.human.foot")
             )
         ),
         Operation(
             contextKey = "$.has_any",
             operator = "has_any_key",
             operands = listOf(
-                Operand(source = "context", type = "string", value = "$.human.head"),
-                Operand(source = "context", type = "string", value = "$.human.foot")
+                Operand(source = "context", type = OperandType.String, value = "$.human.head"),
+                Operand(source = "context", type = OperandType.String, value = "$.human.foot")
             )
         )
     )
@@ -103,7 +103,7 @@ fun getFailCondition(): Condition {
             contextKey = "$.date",
             operator = "substring",
             operands = listOf(
-                Operand(source = "event", type = "string", value = "$.datetime", options = mapOf("start" to "0", "end" to "10")),
+                Operand(source = "event", type = OperandType.String, value = "$.datetime", options = mapOf("start" to "0", "end" to "10")),
             )
         )
     )
@@ -116,14 +116,14 @@ private fun getResetCondition(): Condition {
             contextKey = "$.copy_from_succeed.has_all",
             operator = "projection",
             operands = listOf(
-                Operand(source = "context::succeed", type = "string", value = "$.has_all"),
+                Operand(source = "context::succeed", type = OperandType.String, value = "$.has_all"),
             )
         ),
         Operation(
             contextKey = "$.copy_from_succeed.has_any",
             operator = "projection",
             operands = listOf(
-                Operand(source = "context::succeed", type = "string", value = "$.has_any") // reset 에서 succeed 컨텍스트에 접근
+                Operand(source = "context::succeed", type = OperandType.String, value = "$.has_any") // reset 에서 succeed 컨텍스트에 접근
             )
         )
     )
