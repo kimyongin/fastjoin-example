@@ -28,6 +28,15 @@ data class Context(val data: MutableMap<String, Any?> = mutableMapOf()) {
     }
 }
 
+private fun parseConstantValue(type: OperandType, value: String): Any? {
+    return when (type) {
+        OperandType.Number -> value.toDoubleOrNull()
+        OperandType.String -> value
+        OperandType.Boolean -> value.toBooleanStrictOrNull()
+        else -> throw UnsupportedOperationException("상수에 대한 타입 '$type'은 지원하지 않습니다.")
+    }
+}
+
 sealed class OperandType {
     object Number : OperandType()
     object String : OperandType()
@@ -77,7 +86,7 @@ class Operation(val contextKey: String, val operator: String, val operands: List
     private fun getValue(condition: String, operand: Operand, event: Event, context: Context): Any? {
         return when (operand.source) {
             "event" -> event.get(operand.value)
-            "constant" -> operand.value
+            "constant" -> parseConstantValue(operand.type, operand.value)
             "context" -> context.get(operand.value.replace("$.", "$.$condition."))
             "context::run" -> context.get(operand.value.replace("$.", "$.run."))
             "context::succeed" -> context.get(operand.value.replace("$.", "$.succeed."))
