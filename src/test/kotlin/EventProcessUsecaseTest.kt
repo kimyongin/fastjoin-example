@@ -1,3 +1,4 @@
+import ConditionType.*
 import OperandSource.*
 import OperatorType.*
 import org.junit.jupiter.api.Test
@@ -5,11 +6,13 @@ import org.junit.jupiter.api.Test
 
 private fun getJob(): Job {
     return Job(
-        run = getRunCondition(),
-        pause = getPauseCondition(),
-        succeed = getSucceedCondition(),
-        fail = getFailCondition(),
-        reset = getResetCondition()
+        mapOf(
+            RUN to getRunCondition(),
+            PAUSE to getPauseCondition(),
+            SUCCEED to getSucceedCondition(),
+            FAIL to getFailCondition(),
+            RESET to getResetCondition()
+        )
     )
 }
 
