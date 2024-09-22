@@ -1,3 +1,4 @@
+import OperandType.*
 import OperatorType.*
 
 data class Event(val data: Map<String, Any>) {
@@ -29,23 +30,34 @@ data class Context(val data: MutableMap<String, Any?> = mutableMapOf()) {
     }
 }
 
-sealed class OperandType {
-    object Number : OperandType()
-    object String : OperandType()
-    object Boolean : OperandType()
+enum class OperandSource {
+    EVENT,
+    CONSTANT,
+    CONTEXT,
+    CONTEXT_RUN,
+    CONTEXT_SUCCEED,
+    CONTEXT_FAIL,
+    CONTEXT_PAUSE,
+    CONTEXT_RESET
+}
+
+enum class OperandType {
+    NUMBER,
+    STRING,
+    BOOLEAN
 }
 
 data class Operand(
-    val source: String,
+    val source: OperandSource,
     val type: OperandType,
     val value: String,
     val options: Map<String, String>? = null
 ) {
     fun getConstantValue(): Any? {
         return when (type) {
-            OperandType.Number -> value.toDoubleOrNull()
-            OperandType.String -> value
-            OperandType.Boolean -> value.toBooleanStrictOrNull()
+            NUMBER -> value.toDoubleOrNull()
+            STRING -> value
+            BOOLEAN -> value.toBooleanStrictOrNull()
         }
     }
 }
@@ -101,15 +113,14 @@ class Operation(val contextKey: String, val operator: OperatorType, val operands
 
     private fun getValue(condition: String, operand: Operand, event: Event, context: Context): Any? {
         return when (operand.source) {
-            "event" -> event.get(operand.value)
-            "constant" -> operand.getConstantValue()
-            "context" -> context.get(operand.value.replace("$.", "$.$condition."))
-            "context::run" -> context.get(operand.value.replace("$.", "$.run."))
-            "context::succeed" -> context.get(operand.value.replace("$.", "$.succeed."))
-            "context::fail" -> context.get(operand.value.replace("$.", "$.fail."))
-            "context::pause" -> context.get(operand.value.replace("$.", "$.pause."))
-            "context::reset" -> context.get(operand.value.replace("$.", "$.reset."))
-            else -> throw UnsupportedOperationException("'${operand.source}' is not supported")
+            OperandSource.EVENT -> event.get(operand.value)
+            OperandSource.CONSTANT -> operand.getConstantValue()
+            OperandSource.CONTEXT -> context.get(operand.value.replace("$.", "$.$condition."))
+            OperandSource.CONTEXT_RUN -> context.get(operand.value.replace("$.", "$.run."))
+            OperandSource.CONTEXT_SUCCEED -> context.get(operand.value.replace("$.", "$.succeed."))
+            OperandSource.CONTEXT_FAIL -> context.get(operand.value.replace("$.", "$.fail."))
+            OperandSource.CONTEXT_PAUSE -> context.get(operand.value.replace("$.", "$.pause."))
+            OperandSource.CONTEXT_RESET -> context.get(operand.value.replace("$.", "$.reset."))
         }
     }
 
