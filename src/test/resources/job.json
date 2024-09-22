@@ -1,0 +1,183 @@
+{
+  "conditions": {
+    "run": {
+      "operations": [
+        {
+          "context_key": "$.projection",
+          "operator": "projection",
+          "operands": [
+            {
+              "source": "event",
+              "type": "string",
+              "value": "$.info.name"
+            }
+          ]
+        },
+        {
+          "context_key": "$.quantity_sum",
+          "operator": "sum",
+          "operands": [
+            {
+              "source": "event",
+              "type": "number",
+              "value": "$.quantity"
+            }
+          ]
+        },
+        {
+          "context_key": "$.quantity_sum_equal",
+          "operator": "equal",
+          "operands": [
+            {
+              "source": "context",
+              "type": "number",
+              "value": "$.quantity_sum"
+            },
+            {
+              "source": "constant",
+              "type": "number",
+              "value": "5"
+            }
+          ]
+        }
+      ]
+    },
+    "pause": {
+      "operations": [
+        {
+          "context_key": "$.inner.projection",
+          "operator": "projection",
+          "operands": [
+            {
+              "source": "event",
+              "type": "string",
+              "value": "$.info.name"
+            }
+          ]
+        },
+        {
+          "context_key": "$.inner.quantity_sum",
+          "operator": "sum",
+          "operands": [
+            {
+              "source": "event",
+              "type": "number",
+              "value": "$.quantity"
+            }
+          ]
+        },
+        {
+          "context_key": "$.inner.quantity_sum_equal",
+          "operator": "greater_than_equal",
+          "operands": [
+            {
+              "source": "context",
+              "type": "number",
+              "value": "$.inner.quantity_sum"
+            },
+            {
+              "source": "constant",
+              "type": "number",
+              "value": "5"
+            }
+          ]
+        }
+      ]
+    },
+    "succeed": {
+      "operations": [
+        {
+          "context_key": "$.human",
+          "operator": "merge",
+          "operands": [
+            {
+              "source": "event",
+              "type": "string",
+              "value": "$.value",
+              "options": {
+                "context_keyPostfix": "$.type"
+              }
+            }
+          ]
+        },
+        {
+          "context_key": "$.has_all",
+          "operator": "has_all_key",
+          "operands": [
+            {
+              "source": "context",
+              "type": "string",
+              "value": "$.human.head"
+            },
+            {
+              "source": "context",
+              "type": "string",
+              "value": "$.human.foot"
+            }
+          ]
+        },
+        {
+          "context_key": "$.has_any",
+          "operator": "has_any_key",
+          "operands": [
+            {
+              "source": "context",
+              "type": "string",
+              "value": "$.human.head"
+            },
+            {
+              "source": "context",
+              "type": "string",
+              "value": "$.human.foot"
+            }
+          ]
+        }
+      ]
+    },
+    "fail": {
+      "operations": [
+        {
+          "context_key": "$.date",
+          "operator": "substring",
+          "operands": [
+            {
+              "source": "event",
+              "type": "string",
+              "value": "$.datetime",
+              "options": {
+                "start": "0",
+                "end": "10"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "reset": {
+      "operations": [
+        {
+          "context_key": "$.copy_from_succeed.has_all",
+          "operator": "projection",
+          "operands": [
+            {
+              "source": "context::succeed",
+              "type": "string",
+              "value": "$.has_all"
+            }
+          ]
+        },
+        {
+          "context_key": "$.copy_from_succeed.has_any",
+          "operator": "projection",
+          "operands": [
+            {
+              "source": "context::succeed",
+              "type": "string",
+              "value": "$.has_any"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
