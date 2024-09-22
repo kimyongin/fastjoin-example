@@ -10,8 +10,6 @@ repositories {
 }
 
 dependencies {
-    implementation("com.jayway.jsonpath:json-path:2.9.0")
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.17.2")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.17.2")
     testImplementation(platform("org.junit:junit-bom:5.10.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
