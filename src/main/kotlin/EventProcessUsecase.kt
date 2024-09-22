@@ -1,3 +1,4 @@
+import OperatorType.*
 
 data class Event(val data: Map<String, Any>) {
     fun get(jsonPath: String): Any? {
@@ -28,15 +29,6 @@ data class Context(val data: MutableMap<String, Any?> = mutableMapOf()) {
     }
 }
 
-private fun parseConstantValue(type: OperandType, value: String): Any? {
-    return when (type) {
-        OperandType.Number -> value.toDoubleOrNull()
-        OperandType.String -> value
-        OperandType.Boolean -> value.toBooleanStrictOrNull()
-        else -> throw UnsupportedOperationException("상수에 대한 타입 '$type'은 지원하지 않습니다.")
-    }
-}
-
 sealed class OperandType {
     object Number : OperandType()
     object String : OperandType()
@@ -48,7 +40,15 @@ data class Operand(
     val type: OperandType,
     val value: String,
     val options: Map<String, String>? = null
-)
+) {
+    fun getConstantValue(): Any? {
+        return when (type) {
+            OperandType.Number -> value.toDoubleOrNull()
+            OperandType.String -> value
+            OperandType.Boolean -> value.toBooleanStrictOrNull()
+        }
+    }
+}
 
 data class Condition(val operations: List<Operation>)
 
@@ -77,7 +77,23 @@ class EventProcessUsecase(val job: Job, val context: Context) {
     }
 }
 
-class Operation(val contextKey: String, val operator: String, val operands: List<Operand>) {
+enum class OperatorType {
+    PROJECTION,
+    MERGE,
+    COUNT,
+    SUM,
+    EQUAL,
+    NOT_EQUAL,
+    GREATER_THAN,
+    GREATER_THAN_EQUAL,
+    LESS_THAN,
+    LESS_THAN_EQUAL,
+    HAS_ALL_KEY,
+    HAS_ANY_KEY,
+    SUBSTRING
+}
+
+class Operation(val contextKey: String, val operator: OperatorType, val operands: List<Operand>) {
 
     private fun getContextKey(condition: String): String {
         return contextKey.replace("$.", "$.$condition.")
@@ -86,7 +102,7 @@ class Operation(val contextKey: String, val operator: String, val operands: List
     private fun getValue(condition: String, operand: Operand, event: Event, context: Context): Any? {
         return when (operand.source) {
             "event" -> event.get(operand.value)
-            "constant" -> parseConstantValue(operand.type, operand.value)
+            "constant" -> operand.getConstantValue()
             "context" -> context.get(operand.value.replace("$.", "$.$condition."))
             "context::run" -> context.get(operand.value.replace("$.", "$.run."))
             "context::succeed" -> context.get(operand.value.replace("$.", "$.succeed."))
@@ -99,7 +115,7 @@ class Operation(val contextKey: String, val operator: String, val operands: List
 
     fun run(condition: String, context: Context, event: Event) {
         when (operator) {
-            "projection", "merge" -> {
+            PROJECTION, MERGE -> {
                 for (operand in operands) {
                     val value = getValue(condition, operand, event, context)
                     val contextKey = operand.options?.get("contextKeyPostfix")?.let {
@@ -109,8 +125,11 @@ class Operation(val contextKey: String, val operator: String, val operands: List
                     context.set(contextKey, value)
                 }
             }
-            "count" -> {/* not implemented */}
-            "sum" -> {
+
+            COUNT -> {/* not implemented */
+            }
+
+            SUM -> {
                 operands[0].let { operand ->
                     val value = getValue(condition, operand, event, context)
                     val contextKey = getContextKey(condition)
@@ -119,39 +138,52 @@ class Operation(val contextKey: String, val operator: String, val operands: List
                     context.set(contextKey, newValue)
                 }
             }
-            "not_equal" -> {/* not implemented */}
-            "equal" -> {
+
+            NOT_EQUAL -> {/* not implemented */
+            }
+
+            EQUAL -> {
                 val left = getValue(condition, operands[0], event, context)
                 val right = getValue(condition, operands[1], event, context)
                 val result = Operator.equal(operands[0].type, left, operands[1].type, right)
                 val contextKey = getContextKey(condition)
                 context.set(contextKey, result)
             }
-            "greater_than" -> {/* not implemented */}
-            "greater_than_equal" -> {
+
+            GREATER_THAN -> {/* not implemented */
+            }
+
+            GREATER_THAN_EQUAL -> {
                 val left = getValue(condition, operands[0], event, context)
                 val right = getValue(condition, operands[1], event, context)
                 val result = Operator.greaterThanEqual(operands[0].type, left, operands[1].type, right)
                 val contextKey = getContextKey(condition)
                 context.set(contextKey, result)
             }
-            "less_than" -> {/* not implemented */}
-            "less_than_equal" -> {/* not implemented */}
-            "has_all_key" -> {
+
+            LESS_THAN -> {/* not implemented */
+            }
+
+            LESS_THAN_EQUAL -> {/* not implemented */
+            }
+
+            HAS_ALL_KEY -> {
                 val result = operands.all { operand ->
                     getValue(condition, operand, event, context) != null
                 }
                 val contextKey = getContextKey(condition)
                 context.set(contextKey, result)
             }
-            "has_any_key" -> {
+
+            HAS_ANY_KEY -> {
                 val result = operands.any { operand ->
                     getValue(condition, operand, event, context) != null
                 }
                 val contextKey = getContextKey(condition)
                 context.set(contextKey, result)
             }
-            "substring" -> {
+
+            SUBSTRING -> {
                 val value = getValue(condition, operands[0], event, context)
                 val start = operands[0].options?.get("start")?.toInt() ?: 0
                 val end = operands[0].options?.get("end")?.toInt() ?: value.toString().length
@@ -159,7 +191,6 @@ class Operation(val contextKey: String, val operator: String, val operands: List
                 val contextKey = getContextKey(condition)
                 context.set(contextKey, result)
             }
-            else -> throw UnsupportedOperationException("Operator '$operator' is not supported")
         }
     }
 }
