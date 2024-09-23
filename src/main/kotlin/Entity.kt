@@ -40,12 +40,7 @@ data class Context(val data: MutableMap<String, Any?> = mutableMapOf()) {
 enum class OperandSource(@JsonValue val value: String) {
     EVENT("event"),
     CONSTANT("constant"),
-    CONTEXT("context"),
-    CONTEXT_RUN("context::run"),
-    CONTEXT_SUCCEED("context::succeed"),
-    CONTEXT_FAIL("context::fail"),
-    CONTEXT_PAUSE("context::pause"),
-    CONTEXT_RESET("context::reset");
+    CONTEXT("context");
 
     companion object {
         @JsonCreator
@@ -71,6 +66,7 @@ enum class OperandType(@JsonValue val value: String) {
 enum class OperandOption(@JsonValue val value: String) {
     START("start"),
     END("end"),
+    CONTEXT_NAMESPACE("context_namespace"),
     CONTEXT_KEY_POSTFIX("context_key_postfix");
 
     companion object {

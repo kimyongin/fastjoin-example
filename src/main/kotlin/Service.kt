@@ -7,50 +7,48 @@ class EventProcessService(private val job: Job, private val context: Context) {
 
     fun process(event: Event) {
         job.conditions[PAUSE]?.operations?.forEach { operation ->
-            operationService.run(operation, PAUSE, context, event)
+            operationService.run(operation, PAUSE.value, context, event)
         }
         job.conditions[RUN]?.operations?.forEach { operation ->
-            operationService.run(operation, RUN, context, event)
+            operationService.run(operation, RUN.value, context, event)
         }
         job.conditions[SUCCEED]?.operations?.forEach { operation ->
-            operationService.run(operation, SUCCEED, context, event)
+            operationService.run(operation, SUCCEED.value, context, event)
         }
         job.conditions[FAIL]?.operations?.forEach { operation ->
-            operationService.run(operation, FAIL, context, event)
+            operationService.run(operation, FAIL.value, context, event)
         }
         job.conditions[RESET]?.operations?.forEach { operation ->
-            operationService.run(operation, RESET, context, event)
+            operationService.run(operation, RESET.value, context, event)
         }
     }
 }
 
 class OperationService {
-    private fun getContextKey(contextKey: String, conditionType: ConditionType): String {
-        return contextKey.replace("$.", "$.${conditionType.value}.")
+    private fun getContextKey(contextKey: String, contextNamespace: String): String {
+        return contextKey.replace("$.", "$.${contextNamespace}.")
     }
 
-    private fun getValue(conditionType: ConditionType, operand: Operand, event: Event, context: Context): Any? {
+    private fun getValue(operand: Operand, event: Event, context: Context, contextNamespace: String): Any? {
         return when (operand.source) {
             OperandSource.EVENT -> event.get(operand.value)
             OperandSource.CONSTANT -> operand.getConstantValue()
-            OperandSource.CONTEXT -> context.get(operand.value.replace("$.", "$.${conditionType.value}."))
-            OperandSource.CONTEXT_RUN -> context.get(operand.value.replace("$.", "$.${RUN.value}."))
-            OperandSource.CONTEXT_SUCCEED -> context.get(operand.value.replace("$.", "$.${SUCCEED.value}."))
-            OperandSource.CONTEXT_FAIL -> context.get(operand.value.replace("$.", "$.${FAIL.value}."))
-            OperandSource.CONTEXT_PAUSE -> context.get(operand.value.replace("$.", "$.${PAUSE.value}."))
-            OperandSource.CONTEXT_RESET -> context.get(operand.value.replace("$.", "$.${RESET.value}."))
+            OperandSource.CONTEXT -> {
+                val namespace = operand.options?.get(CONTEXT_NAMESPACE) ?: contextNamespace
+                context.get(operand.value.replace("$.", "$.$namespace."))
+            }
         }
     }
 
-    fun run(operation: Operation, conditionType: ConditionType, context: Context, event: Event) {
+    fun run(operation: Operation, contextNamespace: String, context: Context, event: Event) {
         when (operation.operator) {
             PROJECTION, MERGE -> {
                 for (operand in operation.operands) {
-                    val value = getValue(conditionType, operand, event, context)
+                    val value = getValue(operand, event, context, contextNamespace)
                     val contextKey = operand.options?.get(CONTEXT_KEY_POSTFIX)?.let {
                         val postfixValue = event.get(it) ?: ""
-                        "${getContextKey(operation.contextKey, conditionType)}.$postfixValue"
-                    } ?: getContextKey(operation.contextKey, conditionType)
+                        "${getContextKey(operation.contextKey, contextNamespace)}.$postfixValue"
+                    } ?: getContextKey(operation.contextKey, contextNamespace)
                     context.set(contextKey, value)
                 }
             }
@@ -60,8 +58,8 @@ class OperationService {
 
             SUM -> {
                 operation.operands[0].let { operand ->
-                    val value = getValue(conditionType, operand, event, context)
-                    val contextKey = getContextKey(operation.contextKey, conditionType)
+                    val value = getValue(operand, event, context, contextNamespace)
+                    val contextKey = getContextKey(operation.contextKey, contextNamespace)
                     val currentValue = context.get(contextKey)
                     val newValue = Operator.sum(operand.type, value, currentValue)
                     context.set(contextKey, newValue)
@@ -72,10 +70,10 @@ class OperationService {
             }
 
             EQUAL -> {
-                val left = getValue(conditionType, operation.operands[0], event, context)
-                val right = getValue(conditionType, operation.operands[1], event, context)
+                val left = getValue(operation.operands[0], event, context, contextNamespace)
+                val right = getValue(operation.operands[1], event, context, contextNamespace)
                 val result = Operator.equal(operation.operands[0].type, left, operation.operands[1].type, right)
-                val contextKey = getContextKey(operation.contextKey, conditionType)
+                val contextKey = getContextKey(operation.contextKey, contextNamespace)
                 context.set(contextKey, result)
             }
 
@@ -83,11 +81,11 @@ class OperationService {
             }
 
             GREATER_THAN_EQUAL -> {
-                val left = getValue(conditionType, operation.operands[0], event, context)
-                val right = getValue(conditionType, operation.operands[1], event, context)
+                val left = getValue(operation.operands[0], event, context, contextNamespace)
+                val right = getValue(operation.operands[1], event, context, contextNamespace)
                 val result =
                     Operator.greaterThanEqual(operation.operands[0].type, left, operation.operands[1].type, right)
-                val contextKey = getContextKey(operation.contextKey, conditionType)
+                val contextKey = getContextKey(operation.contextKey, contextNamespace)
                 context.set(contextKey, result)
             }
 
@@ -99,26 +97,26 @@ class OperationService {
 
             HAS_ALL_KEY -> {
                 val result = operation.operands.all { operand ->
-                    getValue(conditionType, operand, event, context) != null
+                    getValue(operand, event, context, contextNamespace) != null
                 }
-                val contextKey = getContextKey(operation.contextKey, conditionType)
+                val contextKey = getContextKey(operation.contextKey, contextNamespace)
                 context.set(contextKey, result)
             }
 
             HAS_ANY_KEY -> {
                 val result = operation.operands.any { operand ->
-                    getValue(conditionType, operand, event, context) != null
+                    getValue(operand, event, context, contextNamespace) != null
                 }
-                val contextKey = getContextKey(operation.contextKey, conditionType)
+                val contextKey = getContextKey(operation.contextKey, contextNamespace)
                 context.set(contextKey, result)
             }
 
             SUBSTRING -> {
-                val value = getValue(conditionType, operation.operands[0], event, context)
+                val value = getValue(operation.operands[0], event, context, contextNamespace)
                 val start = operation.operands[0].options?.get(START)?.toInt() ?: 0
                 val end = operation.operands[0].options?.get(END)?.toInt() ?: value.toString().length
                 val result = value.toString().substring(start, end)
-                val contextKey = getContextKey(operation.contextKey, conditionType)
+                val contextKey = getContextKey(operation.contextKey, contextNamespace)
                 context.set(contextKey, result)
             }
         }

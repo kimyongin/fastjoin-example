@@ -160,9 +160,12 @@
           "operator": "projection",
           "operands": [
             {
-              "source": "context::succeed",
+              "source": "context",
               "type": "string",
-              "value": "$.has_all"
+              "value": "$.has_all",
+              "options": {
+                "context_namespace": "succeed"
+              }
             }
           ]
         },
@@ -171,9 +174,12 @@
           "operator": "projection",
           "operands": [
             {
-              "source": "context::succeed",
+              "source": "context",
               "type": "string",
-              "value": "$.has_any"
+              "value": "$.has_any",
+              "options": {
+                "context_namespace": "succeed"
+              }
             }
           ]
         }
