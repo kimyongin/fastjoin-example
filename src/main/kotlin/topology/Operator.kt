@@ -1,4 +1,6 @@
-import OperandType.*
+package topology
+
+import topology.OperandType.*
 
 object Operator {
 

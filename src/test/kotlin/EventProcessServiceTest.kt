@@ -1,6 +1,10 @@
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.junit.jupiter.api.Test
 import com.fasterxml.jackson.module.kotlin.readValue
+import jobSessionManager.ConditionProcessor
+import jobSessionManager.Job
+import topology.Context
+import topology.Event
 
 fun getResourceAsText(path: String): String? =
     object {}.javaClass.getResource(path)?.readText()
@@ -27,7 +31,7 @@ class EventProcessServiceTest {
         val resource: String = getResourceAsText("/job.json")!!
         val job = getJob(resource)
         val context = Context()
-        val eventProcessUsecase = EventProcessService(job, context)
+        val conditionProcessor = ConditionProcessor(job, context)
 
         val event1 = Event(
             mapOf(
@@ -53,9 +57,9 @@ class EventProcessServiceTest {
                 "datetime" to "2021-01-02T02:03:04"
             )
         )
-        eventProcessUsecase.process(event1)
+        conditionProcessor.run(event1)
         println(context.toJsonString(true))
-        eventProcessUsecase.process(event2)
+        conditionProcessor.run(event2)
         println(context.toJsonString(true))
         if (context.isUpdated()) {
             println("updated")

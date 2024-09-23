@@ -1,3 +1,5 @@
+package topology
+
 import com.fasterxml.jackson.databind.ObjectMapper
 
 object JsonHelper {
