@@ -5,7 +5,7 @@
 ### 요약
 
 - 작업세션은 CDM을 처리하는 주체로써 PAUSED, RUNNING, SUCCESS, FAIL 상태를 갖습니다
-- 작업세션 상태는 run,  pause, succeed, fail, reset, window_timeout, session_timeout 조건에 의해 변경됩니다.
+- 작업세션 상태는 run, pause, succeed, fail, reset, window_timeout, session_timeout 조건에 의해 변경됩니다.
 - 작업세션으로 CDM이 입력되면, 현재 상태의 조건을 처리하여 결과를 컨텍스트에 저장하고 다음 상태로 변경됩니다.
 
 ### 상태
@@ -23,6 +23,7 @@
 
 - 조건의 결과는 컨텍스트에 저장(영속화)됩니다
 - 컨텍스트를 참조하여 같은 조건의 후속 연산, 같은 작업세션의 후속 CDM 처리에서 피연산자로 사용할 수 있습니다.
+- 여러 조건의 결과가 네임스페이스로 구분하여 저장됩니다.
 
 ### 피드백
 
@@ -100,13 +101,13 @@ PAUSED -> FAIL : session_timeout
 
 - 컨텍스트에는 연산 결과가 저장되며, 이를 다른 연산의 피연산자로 사용할 수 있습니다
 - value에는 컨텍스트(=$)의 특정 필드를 JSONPath 표현식으로 지정합니다.
-- 기본적으로 현재 컨텍스트에 접근하며, $($이름)을 사용하면 다른 컨텍스트를 지정하여 접근할 수 있습니다
+- 기본적으로 현재 처리중인 조건의 네임스페이스에 접근하며, option을 통해 다른 조건의 네임스페이스에 접근할 수 있습니다
 
 ```
 {
     "source":"context",   
     "type":"string", 
-    "value":"$.counter" // $ = 현재 컨텍스트 객체
+    "value":"$.counter" // $ = context 객체 (네임스페이스 = 현재 조건)
 }
 ```
 
@@ -114,7 +115,8 @@ PAUSED -> FAIL : session_timeout
 {
   "source":"context", 
   "type":"string", 
-  "value":"$(run).counter" // $(run) = run 컨텍스트 객체
+  "value":"$.counter" // $ = 컨텍스트 객체 (네임스페이스 = run)
+  "options":{ "context_namespace":"run" }
 }
 ```
 
@@ -218,23 +220,23 @@ PAUSED -> FAIL : session_timeout
 ```
 [
   {
-    "id": "result1", // 컨텍스트 id
+    "context_key": "$.result1", // sum 결과를 저장할 컨텍스트 KEY
     "operator": "sum",
     "operands": [/*operands*/]
   },
   {
-    "id": "result2",
+    "context_key": "$.result2", // equal 결과를 저장할 컨텍스트 KEY
     "operator": "equal",
     "operands": [
       {
         "source": "context", 
         "type": "number",
-        "value": "$.result1"
+        "value": "$.result1" // // sum 결과과 저장되어 있는 컨텍스트 KEY를 참조
       },
       {
         "source": "constant", 
         "type": "number",
-        "value": 50
+        "value": "50"
       }
     ]
   }
@@ -292,7 +294,7 @@ PAUSED -> FAIL : session_timeout
         {
           "source": "constant",
           "type": "number",
-          "value": 100
+          "value": "100"
         }
       ]
     }
@@ -306,7 +308,7 @@ PAUSED -> FAIL : session_timeout
 -- DSL --
 [
   {
-    "id": "checker",
+    "context_key": "$.checker",
     "operator": "equal",
     "operands": [
       {
@@ -337,7 +339,7 @@ input_cdm.{"map_name":"dungeon#1234"} --> context.{"checker": true}
 -- DSL --
 [
   {
-    "id": "map_name",
+    "context_key": "$.map_name",
     "operator": "projection",
     "operands": [
       {
@@ -355,7 +357,6 @@ input_cdm.{"map_name":"dungeon#1234"} --> context.{"checker": true}
 input_cdm.{
   "map_info": {
     "name": "dungeon#1234", 
-    "level": 10
   }
 } --> context.{
   "map_name": "dungeon#1234",
@@ -370,20 +371,13 @@ input_cdm.{
 -- DSL --
 [
   {
-    "id": "projection",
+    "context_key": "$.projection.map_name",
     "operator": "projection",
     "operands": [
       {
         "source": "cdm",
         "type":"string", 
-        "key": "map_name", 
-        "value":"$.map_info.name"
-      },
-      {
-        "source": "cdm",
-        "type":"number", 
-        "key": "map_level", 
-        "value":"$.map_info.level"
+        "value":"$.name"
       }
     ]
   }
@@ -395,12 +389,10 @@ input_cdm.{
 input_cdm.{
   "map_info": {
     "name": "dungeon#1234", 
-    "level": 10
   }
 } --> context.{
   "projection": {
     "map_name": "dungeon#1234",
-    "map_level": 10
   }
 }
 ```
@@ -411,29 +403,29 @@ input_cdm.{
 -- DSL --
 [
   {
-    "id": "result", // 컨텍스트 id
+    "context_key": "$.result", 
     "operator": "sum",
     "operands": [
       {
         "source": "cdm",
         "type": "number",
-        "value": "$.quantity"  // 합계 대상 필드
+        "value": "$.quantity"  
       }
     ]
   },
   {
-    "id": "checker",
+    "context_key": "$.checker",
     "operator": "equal",
     "operands": [
       {
-        "source": "context", // 이전 연산의 결과값을 컨텍스트 id로 참조할 수 있습니다.
+        "source": "context", 
         "type": "number",
-        "value": "$.result" // 컨텍스트 id
+        "value": "$.result"
       },
       {
         "source": "constant",
         "type": "number",
-        "value": 10
+        "value": "10"
       }
     ]
   }
@@ -450,37 +442,47 @@ input_cdm.{"quantity":3} --> context.{"result": 10, "checker": true} // =7+3
 
 ### merge + has_all_key 연산 예시1
 
-- merge는 반드시 key를 지정해야 합니다.
+- options.operate_when_has_value:true 설정된 연산은 피연산자의 값이 존재할 때만 쓰기를 합니다. (기본값은 true 입니다)
 
 ```
 -- DSL --
 [
   {
-    "id": "result",
+    "context_key": "$.result.head",
     "operator": "merge",
     "operands": [
       {
         "source": "cdm",
         "type":"string", 
-        "key": "head", 
-        "value":"$.head"
-      },
+        "value":"$.head",
+        "options": {"operate_when_has_value": true /*default=true*/}
+      }
+    ]
+  },
+  {
+    "context_key": "$.result.body",
+    "operator": "merge",
+    "operands": [
       {
         "source": "cdm",
         "type":"string", 
-        "key": "body", 
         "value":"$.body"
-      },
+      }
+    ]
+  },
+  {
+    "context_key": "$.result.foot",
+    "operator": "merge",
+    "operands": [
       {
         "source": "cdm",
         "type":"string", 
-        "key": "foot", 
         "value":"$.foot"
       }
     ]
   },
   {
-    "id": "checker",
+    "context_key": "$.checker",
     "operator": "has_all_key",
     "operands": [
       {
@@ -516,25 +518,25 @@ input_cdm.{"foot":"foot"} --> context.{
 
 ### merge + has_all_key 연산 예시2
 
-- merge는 반드시 key를 지정해야 합니다.
+- options.context_key_postfix를 설정하면, 피연산자의 특정 필드를 컨텍스트키에 추가합니다.
 
 ```
 -- DSL --
 [
   {
-    "id": "result", 
+    "context_key": "$.result", 
     "operator": "merge",
     "operands": [
       {
         "source": "cdm",
         "type":"string", 
-        "key":"$.type", 
         "value":"$.data"
+        "options": {"context_key_postfix": "$.type"}
       }
     ]
   },
   {
-    "id": "checker",
+    "context_key": "$.checker",
     "operator": "has_all_key",
     "operands": [
       {
@@ -577,7 +579,7 @@ input_cdm.{"type":"foot", "data":"foot"} --> context.{
 -- DSL --
 [
   {
-    "id": "datetime", 
+    "context_key": "datetime", 
     "operator": "projection",
     "options": {"persistence": false /*default=true*/},
     "operands": [
@@ -589,7 +591,7 @@ input_cdm.{"type":"foot", "data":"foot"} --> context.{
     ]
   },
   {
-    "id": "date", 
+    "context_key": "date", 
     "operator": "substring",
     "options": {"persistence": false /*default=true*/},
     "operands": [
@@ -597,13 +599,12 @@ input_cdm.{"type":"foot", "data":"foot"} --> context.{
         "source": "context",
         "type":"string", 
         "value":"$.datetime", 
-        "start_index":0, 
-        "end_index":10
+        "options": {"start":0, "end":10}
       }
     ]
   },
   {
-    "id": "attendance", 
+    "context_key": "attendance", 
     "operator": "merge",
     "options": {"write_when_not_exists": true /*default=false*/},
     "operands": [
